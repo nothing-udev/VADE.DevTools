@@ -12,7 +12,7 @@ DI, единая точка входа, кастомные атрибуты ин
 Git-репозиторий с `package.json` в корне — подключается через Unity Package Manager:
 
 1. Window → Package Manager → `+` → **Add package from git URL**
-2. `https://github.com/<ваш-аккаунт>/vade-devtools.git` (или `...#2.0.0` для тега)
+2. `https://github.com/nothing-udev/VADE.DevTools.git` (или `...#2.0.0` для тега)
 
 **Newtonsoft.Json** — обязательная зависимость, объявлена в `package.json`, Unity
 ставит её сама. **UGUI**/**TextMeshPro** — обязательны, уже прописаны в asmdef.
