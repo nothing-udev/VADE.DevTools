@@ -1,0 +1,21 @@
+{
+  "name": "com.vade.devtools",
+  "version": "2.3.0",
+  "displayName": "VADE.DevTools",
+  "description": "Библиотека VADE для ускорения разработки на Unity: реактивные значения/коллекции, AutoSave (Newtonsoft.Json), DI-контейнер, Bootstrap, кастомные атрибуты (EditorButton, ShowIf/HideIf), утилиты-расширения и система UI-окон.",
+  "unity": "2021.3",
+  "author": {
+    "name": "VADE"
+  },
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.2"
+  },
+  "keywords": [
+    "reactive",
+    "di",
+    "bootstrap",
+    "autosave",
+    "editor-tools",
+    "ui"
+  ]
+}

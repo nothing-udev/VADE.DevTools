@@ -1,0 +1,20 @@
+{
+    "name": "VADE.DevTools.Editor",
+    "rootNamespace": "VADE.DevTools.Editor",
+    "references": [
+        "VADE.DevTools.Core",
+        "VADE.DevTools.UGUI",
+        "UnityEngine.UI",
+        "Newtonsoft.Json"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": []
+}
