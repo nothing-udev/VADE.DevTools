@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using VADE.DevTools.DI;
+using VADE.DevTools.Events;
 
 namespace VADE.DevTools.UI
 {
@@ -43,10 +44,22 @@ namespace VADE.DevTools.UI
 
         public event Action<Window> WindowClosed;
 
+        private void RaiseOpened(Window window)
+        {
+            WindowOpened?.Invoke(window);
+            EventBus.Publish(new WindowOpenedEvent(window));
+        }
+
+        private void RaiseClosed(Window window)
+        {
+            WindowClosed?.Invoke(window);
+            EventBus.Publish(new WindowClosedEvent(window));
+        }
+
         private void Awake()
         {
             Instance = this;
-            Dependency.Register(this);
+            DI.Register(this);
             WindowClosed += OnAnyWindowClosed;
         }
 
@@ -57,8 +70,8 @@ namespace VADE.DevTools.UI
             if (Instance == this)
             {
                 Instance = null;
-                if (Dependency.IsRegistered<WindowService>())
-                    Dependency.Unregister<WindowService>();
+                if (DI.IsRegistered<WindowService>())
+                    DI.Unregister<WindowService>();
             }
         }
 
@@ -109,7 +122,7 @@ namespace VADE.DevTools.UI
                 if (popupStack.Count > 0 && ReferenceEquals(popupStack.Peek().window, window))
                 {
                     window.Show(data);
-                    WindowOpened?.Invoke(window);
+                    RaiseOpened(window);
                     return (T)window;
                 }
 
@@ -125,7 +138,7 @@ namespace VADE.DevTools.UI
                 if (windowStack.Count > 0 && ReferenceEquals(windowStack.Peek(), window))
                 {
                     window.Show(data);
-                    WindowOpened?.Invoke(window);
+                    RaiseOpened(window);
                     return (T)window;
                 }
 
@@ -138,7 +151,7 @@ namespace VADE.DevTools.UI
             }
 
             window.Show(data);
-            WindowOpened?.Invoke(window);
+            RaiseOpened(window);
             return (T)window;
         }
 
@@ -151,7 +164,7 @@ namespace VADE.DevTools.UI
             if (top != null)
             {
                 top.Hide();
-                WindowClosed?.Invoke(top);
+                RaiseClosed(top);
             }
 
             while (windowStack.Count > 0 && windowStack.Peek() == null)
@@ -171,7 +184,7 @@ namespace VADE.DevTools.UI
             if (top != null)
             {
                 top.Hide();
-                WindowClosed?.Invoke(top);
+                RaiseClosed(top);
             }
 
             while (windowStack.Count > 0 && windowStack.Peek() == null)
@@ -187,7 +200,7 @@ namespace VADE.DevTools.UI
             if (topEntry.window != null)
             {
                 topEntry.window.Hide();
-                WindowClosed?.Invoke(topEntry.window);
+                RaiseClosed(topEntry.window);
             }
 
             while (popupStack.Count > 0 && popupStack.Peek().window == null)
@@ -217,7 +230,7 @@ namespace VADE.DevTools.UI
                 }
                 RemovePopupFromStack(window);
                 window.Hide();
-                WindowClosed?.Invoke(window);
+                RaiseClosed(window);
             }
             else
             {
@@ -228,7 +241,7 @@ namespace VADE.DevTools.UI
                 }
                 RemoveWindowFromStack(window);
                 window.Hide();
-                WindowClosed?.Invoke(window);
+                RaiseClosed(window);
             }
         }
 
@@ -258,7 +271,7 @@ namespace VADE.DevTools.UI
                 if (window != null)
                 {
                     window.Hide();
-                    WindowClosed?.Invoke(window);
+                    RaiseClosed(window);
                 }
             }
         }
@@ -271,7 +284,7 @@ namespace VADE.DevTools.UI
                 if (popupEntry.window != null)
                 {
                     popupEntry.window.Hide();
-                    WindowClosed?.Invoke(popupEntry.window);
+                    RaiseClosed(popupEntry.window);
                 }
             }
         }

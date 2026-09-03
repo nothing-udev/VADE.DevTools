@@ -37,7 +37,7 @@ namespace VADE.DevTools.Localization
 
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            Dependency.Register(this);
+            DI.Register(this);
 
             savedLanguage = new AutoSave<string>("vade_language", AutoSaveType.PlayerPrefs, defaultValue: null);
         }
@@ -47,8 +47,8 @@ namespace VADE.DevTools.Localization
             if (Instance == this)
             {
                 Instance = null;
-                if (Dependency.IsRegistered<LocalizationService>())
-                    Dependency.Unregister<LocalizationService>();
+                if (DI.IsRegistered<LocalizationService>())
+                    DI.Unregister<LocalizationService>();
             }
         }
 

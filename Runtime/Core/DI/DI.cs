@@ -5,7 +5,7 @@ using UnityEngine;
 namespace VADE.DevTools.DI
 {
 
-    public static class Dependency
+    public static class DI
     {
         private static readonly Dictionary<Type, object> _instances = new();
 
@@ -13,7 +13,7 @@ namespace VADE.DevTools.DI
         {
             var type = typeof(T);
             if (_instances.ContainsKey(type))
-                Debug.LogWarning($"[Dependency] '{type.Name}' уже зарегистрирован — предыдущий экземпляр будет заменён.");
+                Debug.LogWarning($"[DI] '{type.Name}' уже зарегистрирован — предыдущий экземпляр будет заменён.");
             _instances[type] = instance;
         }
 
@@ -27,7 +27,7 @@ namespace VADE.DevTools.DI
             if (_instances.TryGetValue(typeof(T), out var instance))
                 return (T)instance;
 
-            throw new InvalidOperationException($"[Dependency] '{typeof(T).Name}' не зарегистрирован. Проверьте порядок вызовов в Bootstrap.");
+            throw new InvalidOperationException($"[DI] '{typeof(T).Name}' не зарегистрирован. Проверьте порядок вызовов в Bootstrap.");
         }
 
         public static bool TryResolve<T>(out T instance)

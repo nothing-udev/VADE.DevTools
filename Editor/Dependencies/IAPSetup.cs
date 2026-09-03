@@ -11,6 +11,7 @@ namespace VADE.DevTools.Editor.Dependencies
     {
         private const string DefineSymbol = "VADE_IAP";
         private const string CoreAsmdefName = "VADE.DevTools.Core";
+        private const string EditorAsmdefName = "VADE.DevTools.Editor";
 
         private static readonly string[] PackageIds =
         {
@@ -103,9 +104,16 @@ namespace VADE.DevTools.Editor.Dependencies
                 return;
             }
 
+            if (!AsmdefPatcher.TryAddReferences(EditorAsmdefName, assemblyNames, out string editorError))
+            {
+                Debug.LogError($"[VADE.DevTools] Не удалось прописать ссылки {string.Join(", ", assemblyNames)} в {EditorAsmdefName}.asmdef: {editorError}\n" +
+                                $"Добавьте вручную через инспектор Editor/{EditorAsmdefName}.asmdef.");
+                return;
+            }
+
             AsmdefPatcher.SetDefine(DefineSymbol, true);
 
-            Debug.Log($"[VADE.DevTools] IAP включён: {DefineSymbol}, ссылки [{string.Join(", ", assemblyNames)}] добавлены в {CoreAsmdefName}.asmdef. " +
+            Debug.Log($"[VADE.DevTools] IAP включён: {DefineSymbol}, ссылки [{string.Join(", ", assemblyNames)}] добавлены в {CoreAsmdefName}.asmdef и {EditorAsmdefName}.asmdef. " +
                       "Не забудьте настроить продукты в Unity Dashboard и (для валидации чеков) Window > Unity IAP > IAP Receipt Validation Obfuscator.");
         }
     }

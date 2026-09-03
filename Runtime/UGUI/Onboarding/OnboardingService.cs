@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using VADE.DevTools.Attributes;
 using VADE.DevTools.DI;
+using VADE.DevTools.Events;
 using VADE.DevTools.Reactive;
 #if VADE_DOTWEEN
 using DG.Tweening;
@@ -44,7 +45,7 @@ namespace VADE.DevTools.Onboarding
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            Dependency.Register(this);
+            DI.Register(this);
 
             ctx = new TaskRuntime { Service = this };
         }
@@ -54,8 +55,8 @@ namespace VADE.DevTools.Onboarding
             if (Instance == this)
             {
                 Instance = null;
-                if (Dependency.IsRegistered<OnboardingService>())
-                    Dependency.Unregister<OnboardingService>();
+                if (DI.IsRegistered<OnboardingService>())
+                    DI.Unregister<OnboardingService>();
             }
         }
 
@@ -418,6 +419,7 @@ namespace VADE.DevTools.Onboarding
             float cooldown = step?.cooldownAfterStep ?? 0f;
 
             StepCompleted?.Invoke(stepIndex, step);
+            EventBus.Publish(new StepCompletedEvent(stepIndex, step));
 
             foreach (var cond in step.conditions)
                 if (cond is WaitForCollect wfc)
@@ -435,6 +437,7 @@ namespace VADE.DevTools.Onboarding
                 running = false;
                 completedDisabledStepsUUID.Clear();
                 OnOnboardingComplete?.Invoke();
+                EventBus.Publish(new OnboardingCompletedEvent());
                 return;
             }
 

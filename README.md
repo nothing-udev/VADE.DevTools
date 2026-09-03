@@ -12,12 +12,18 @@ DI, единая точка входа, кастомные атрибуты ин
 Git-репозиторий с `package.json` в корне — подключается через Unity Package Manager:
 
 1. Window → Package Manager → `+` → **Add package from git URL**
-2. `https://github.com/<ваш-аккаунт>/vade-devtools.git` (или `...#2.0.0` для тега)
+2. `https://github.com/nothing-udev/VADE.DevTools.git` (или `...#2.0.0` для тега)
 
 **Newtonsoft.Json** — обязательная зависимость, объявлена в `package.json`, Unity
 ставит её сама. **UGUI**/**TextMeshPro** — обязательны, уже прописаны в asmdef.
 Всё остальное (DOTween, IAP, LevelPlay) — опционально, ставится
 через `Tools/VADE/Setup Window` (см. ниже).
+
+`.meta`-файлы закоммичены в репозиторий — это обязательно для git-пакетов: Unity
+монтирует их как read-only (`Packages/<name>`) и сама `.meta` не досоздаёт, в
+отличие от обычной папки `Assets`. Без них Unity молча игнорирует все ассеты
+пакета ("has no meta file, but it's in an immutable folder") и пакет выглядит
+пустым.
 
 ## Tools/VADE/Setup Window
 
@@ -54,12 +60,13 @@ VADE.DevTools/
 │   │   ├── Reactive/       Reactive<T>, ReactiveList, ReactiveDictionary,
 │   │   │                   Connectable, ReactiveBehaviour/Object, UnityEventExtensions
 │   │   ├── Persistence/    AutoSave<T>, хранилища, сериализация
-│   │   ├── DI/             Dependency
+│   │   ├── DI/             DI
+│   │   ├── Events/         EventBus
 │   │   ├── Bootstrap/      Bootstrap
 │   │   ├── Attributes/     EditorButton, ShowIf/HideIf, ReadOnly, GeneratedId,
 │   │   │                   SerializeReferenceList (сами атрибуты)
 │   │   ├── Extensions/     ExtensionMethods, Dictionary/Math/Vector/Component
-│   │   ├── Utilities/      Pool<T>, CoroutineRunner
+│   │   ├── Utilities/      Pool<T>, CoroutineRunner, WeightedRandom<T>
 │   │   ├── StateMachine/   StateMachine<TState>
 │   │   ├── Audio/          AudioService/IAudioService, AudioLibrary, PooledAudioSource
 │   │   ├── IAP/            ProductData, IAPService            (опц. VADE_IAP)
@@ -77,6 +84,7 @@ VADE.DevTools/
     ├── Setup/          VADESetupWindow
     ├── Bootstrap/      Tools/VADE/Setup Scene
     ├── Dependencies/   DOTween/IAP/LevelPlay setup, AsmdefPatcher
+    ├── IAP/            IAPProductEditorWindow                  (опц. VADE_IAP)
     ├── Attributes/     дровер'ы ShowIf/HideIf/ReadOnly/GeneratedId/EditorButton/SerializeReferenceList
     ├── Localization/   таблица переводов, [LocalizationKey] дровер
     ├── Onboarding/     OnboardingServiceEditor, OnboardingMenuEditor, TaskIdDrawer
@@ -118,35 +126,65 @@ public class ShopPanel : ReactiveBehaviour
 ```csharp
 var isGameStarted = new AutoSave<bool>("is_game_started", AutoSaveType.PlayerPrefs, false);
 isGameStarted.value = true;
-bool started = isGameStarted; // implicit operator
+bool started = isGameStarted;
 
 var stats = new AutoSave<Dictionary<string,int>>("stats", AutoSaveType.File, new());
 stats.value["gold"] = 10;
-stats.Flush(); // мутация коллекции на месте не триггерит автосейв сама — Flush() форсит запись
+stats.Flush();
 ```
+
+`bool started = isGameStarted;` работает через implicit operator. Мутация
+коллекции на месте (`stats.value["gold"] = 10`) не триггерит автосейв сама —
+`Flush()` форсит запись.
 
 Сериализация по умолчанию — Newtonsoft.Json (Dictionary работает из коробки).
 `JsonUtilitySerializer` — облегчённая альтернатива без Dictionary (`AutoSaveSerializer.Current = new JsonUtilitySerializer();`).
 
-Версионирование (опционально):
+Версионирование (опционально) — `migrate` вызывается только если сохранённая
+версия отличается от текущей, реализация миграции — целиком ваша:
 
 ```csharp
-new AutoSave<PlayerData>("player", version: 2, migrate: (rawJson, savedVersion) => { /* ... */ });
+new AutoSave<PlayerData>("player", version: 2, migrate: MigratePlayerData);
 ```
 
 Хранилище подменяемое: `AutoSaveStorage.FileStorage = new MyEncryptedFileStorage();`
 или напрямую в конструктор конкретного `AutoSave<T>`.
 
-## DI (Core/DI) — `Dependency`
+## DI (Core/DI) — `DI`
 
 ```csharp
-Dependency.Register<IAudioService>(new AudioService());
-var audio = Dependency.Resolve<IAudioService>();
-bool ok = Dependency.TryResolve<IAudioService>(out var s);
+DI.Register<IAudioService>(new AudioService());
+var audio = DI.Resolve<IAudioService>();
+bool ok = DI.TryResolve<IAudioService>(out var s);
 ```
 
-Простой статический service locator, живёт весь процесс. `Dependency.Clear()` —
+Простой статический service locator, живёт весь процесс. `DI.Clear()` —
 если нужно сбрасывать между сценами.
+
+## EventBus (Core/Events)
+
+Статическая шина сообщений по типу — для развязки систем, которым не нужно
+знать друг о друге через `DI`:
+
+```csharp
+public readonly struct PlayerDied { public readonly int killerId; }
+
+Connections += EventBus.Subscribe<PlayerDied>(e => Debug.Log(e.killerId));
+EventBus.Publish(new PlayerDied());
+```
+
+`Subscribe<T>` возвращает `IDisposable` — как и всё остальное реактивное в
+библиотеке, кладётся в `Connectable`/`Connections`. `EventBus.Clear()` — сброс
+всех подписчиков разом (тесты, смена сцены).
+
+Интегрирован в двух местах библиотеки как образец использования — оба
+дублируют уже существующие прямые C#-события, ничего не заменяют:
+`WindowService.WindowOpened`/`WindowClosed` также публикуют
+`WindowOpenedEvent`/`WindowClosedEvent`, `OnboardingService.StepCompleted`/
+`OnOnboardingComplete` — `StepCompletedEvent`/`OnboardingCompletedEvent`. Так
+внешняя система (например, будущий `IAnalyticsService`) может подписаться на
+события окон/онбординга, не будучи явно связанной с `WindowService`/
+`OnboardingService`.
 
 ## Bootstrap (Core/Bootstrap)
 
@@ -155,16 +193,20 @@ public class GameBootstrap : Bootstrap
 {
     protected override void RegisterDependencies()
     {
-        Dependency.Register<IAudioService>(new AudioService());
+        DI.Register<IAudioService>(new AudioService());
     }
 
-    protected override void Initialize() { /* синхронно */ }
+    protected override void Initialize() { }
+}
+```
 
-    // либо вместо Initialize() — асинхронный вариант:
-    protected override void Initialize(Action onComplete)
-    {
-        StartCoroutine(LoadConfigThenComplete(onComplete));
-    }
+Переопределите либо синхронный `Initialize()` (как выше), либо, если
+инициализация асинхронная, `Initialize(Action onComplete)` вместо него:
+
+```csharp
+protected override void Initialize(Action onComplete)
+{
+    StartCoroutine(LoadConfigThenComplete(onComplete));
 }
 ```
 
@@ -238,6 +280,12 @@ var fsm = new StateMachine<GameStage>(GameStage.MainMenu)
     .OnEnter(GameStage.Gameplay, () => Debug.Log("start"))
     .OnExit(GameStage.MainMenu, () => menuUI.Hide());
 fsm.ChangeState(GameStage.Gameplay);
+
+var loot = new WeightedRandom<string>()
+    .Add("common", 70f)
+    .Add("rare", 25f)
+    .Add("legendary", 5f);
+string drop = loot.Get();
 ```
 
 ---
@@ -252,7 +300,7 @@ public class ShopWindow : BaseWindow
 }
 
 WindowService.Instance.Open<ShopWindow>();
-WindowService.Instance.Open<ConfirmPopup>(data); // popup определяется автоматически по типу (T : PopupWindow)
+WindowService.Instance.Open<ConfirmPopup>(data);
 WindowService.Instance.Close<ShopWindow>();
 WindowService.Instance.CloseTop();
 
@@ -260,9 +308,12 @@ var current = WindowService.Instance.CurrentWindow;
 WindowService.Instance.WindowOpened += w => Debug.Log(w.name);
 WindowService.Instance.WindowClosed += w => Debug.Log(w.name);
 
-// показ строго по одному, не стеком — для наград/уведомлений:
 WindowService.Instance.EnqueuePopup<RewardPopup>(reward);
 ```
+
+`Open<ConfirmPopup>(data)` определяет popup автоматически по типу (`T :
+PopupWindow`). `EnqueuePopup` — показ строго по одному, не стеком, для наград/
+уведомлений.
 
 Анимация показа/скрытия — встроенный coroutine-lerp по умолчанию, либо DOTween
 (`Ease`) после `Tools/VADE/Dependencies/Enable DOTween Support`. Окна создаются
@@ -301,12 +352,14 @@ LocalizationService.Instance.CurrentLanguage.Subscribe(lang => Debug.Log(lang));
 ```csharp
 var audio = new AudioService();
 audio.Init(Resources.Load<AudioLibrary>("AudioLibrary"), poolSize: 10);
-Dependency.Register<IAudioService>(audio);
+DI.Register<IAudioService>(audio);
 
-Dependency.Resolve<IAudioService>().Play("Click", transform.position);
-Dependency.Resolve<IAudioService>().Play(clip, position, new AudioConfigOverride(volume: 0.5f));
-Dependency.Resolve<IAudioService>().IsMuted.value = true; // AutoSave<bool>, сохраняется само
+DI.Resolve<IAudioService>().Play("Click", transform.position);
+DI.Resolve<IAudioService>().Play(clip, position, new AudioConfigOverride(volume: 0.5f));
+DI.Resolve<IAudioService>().IsMuted.value = true;
 ```
+
+`IsMuted` — `AutoSave<bool>`, сохраняется само.
 
 `AudioLibrary` — `[CreateAssetMenu]` ScriptableObject со списком `AudioData`
 (клипы, громкость, `loop`/`loopDuration` под `[ShowIf]`) и фоновой музыкой.
@@ -319,18 +372,24 @@ Dependency.Resolve<IAudioService>().IsMuted.value = true; // AutoSave<bool>, с�
 Включить: `Tools/VADE/Dependencies/Enable IAP Support` (ставит
 `com.unity.purchasing` + `com.unity.services.core`).
 
-```csharp
-[CreateAssetMenu(menuName = "Configs/VADE/IAP/Product")]
-// ProductData: id, type (ProductType), icon, onProductPurchased
+`Tools/VADE/IAP/Product Editor` — создание `ProductData`-ассетов (id, тип,
+иконка) без ручного `Create > Configs > VADE > IAP > Product` каждый раз, плюс
+список уже существующих товаров с быстрым переходом к ассету.
 
+`ProductData` (поля `id`, `type` — `ProductType`, `icon`, `onProductPurchased`):
+
+```csharp
 var iap = new IAPService(Resources.LoadAll<ProductData>("Configs/Shop"));
 await iap.Initialize();
-Dependency.Register(iap);
+DI.Register(iap);
 
 productData.Purchase();
-productData.Subscribe(() => Debug.Log("purchased"));       // на каждую покупку (consumable)
-productData.SubscribeOnce(() => Debug.Log("owned"));        // разово, срабатывает сразу если уже куплено
+productData.Subscribe(() => Debug.Log("purchased"));
+productData.SubscribeOnce(() => Debug.Log("owned"));
 ```
+
+`Subscribe` — на каждую покупку (consumable), `SubscribeOnce` — разово,
+срабатывает сразу если уже куплено.
 
 Валидация чеков — `Window > Unity IAP > IAP Receipt Validation Obfuscator`
 (генерирует `GooglePlayTangle`/`AppleTangle` с вашими ключами) — без этого
@@ -342,14 +401,18 @@ productData.SubscribeOnce(() => Debug.Log("owned"));        // разово, с�
 `com.unity.services.levelplay`).
 
 ```csharp
-var ads = new AdsServiceLevelPlay(myAdsConfig); // AdsConfig — ScriptableObject с ключами/ad unit id по платформам
-ads.IsBlocked = () => GameData.PremiumUnlocked; // свой геймплейный гейт вместо хардкода
-Dependency.Register<IAdsService>(ads);
+var ads = new AdsServiceLevelPlay(myAdsConfig);
+ads.IsBlocked = () => GameData.PremiumUnlocked;
+DI.Register<IAdsService>(ads);
 
 ads.Init();
 ads.ShowInterstitial();
 ads.ShowRewarded(() => Debug.Log("rewarded"));
 ```
+
+`myAdsConfig` — ассет `AdsConfig` (ключи/ad unit id по платформам, см. ниже).
+`IsBlocked` — свой геймплейный гейт (премиум/уже куплено) вместо хардкода в
+самой библиотеке.
 
 `AdsConfig` — свой ассет на проект (`Configs/VADE/Ads/AdsConfig`), ключи/ad unit
 id по платформам как поля, а не хардкод в коде библиотеки. После установки сети
@@ -364,14 +427,14 @@ id по платформам как поля, а не хардкод в коде
 (`UiClickComponent`, `UiHandPointer`), и с мировыми объектами (`WorldArrowPointer`,
 `ITargetObject`).
 
-```csharp
-// 1. Создать ассет: Tools/VADE/Onboarding/Create Asset
-// 2. Настроить задачи/шаги/действия/условия прямо в инспекторе (полиморфные
-//    списки — через [SerializeReferenceList], см. раздел про атрибуты)
-// 3. Повесить OnboardingService на сцену, назначить ассет
-// 4. На объекты, которые участвуют в онбординге — TaskComponentBase-наследник
-//    (DefaultComponent/UiClickComponent/UIEventComponent), id генерируется сам
+Порядок настройки: 1) создать ассет через `Tools/VADE/Onboarding/Create Asset`;
+2) настроить задачи/шаги/действия/условия прямо в инспекторе (полиморфные списки
+— через `[SerializeReferenceList]`, см. раздел про атрибуты); 3) повесить
+`OnboardingService` на сцену, назначить ассет; 4) на объекты, которые участвуют
+в онбординге, повесить `TaskComponentBase`-наследник (`DefaultComponent`/
+`UiClickComponent`/`UIEventComponent`) — id генерируется сам.
 
+```csharp
 OnboardingService.Instance.StartOnboarding();
 OnboardingService.Instance.StepCompleted += (stepIndex, step) => MyAnalytics.LogStep(step.key);
 OnboardingService.Instance.OnOnboardingComplete.AddListener(() => Debug.Log("done"));
