@@ -450,25 +450,6 @@ OnboardingService.Instance.OnOnboardingComplete.AddListener(() => Debug.Log("don
 Сохранение прогресса — `OnboardingSave` на `AutoSave<T>` (вместо ручных
 PlayerPrefs-ключей), включая список собранных объектов.
 
-### Что не вошло (и почему)
-
-Присланная версия была плотно завязана на конкретную игру — исключено, но
-интерфейсы (`IAction`/`ICondition`) открыты для расширения в вашем собственном
-коде тем же способом:
-- `ObjectBuildedComponent`/`WaitForBuildByPlacer`/`WaitForUiClickOnValidBuildPlace`
-  (EasyBuildSystem), `ObjectCollectComponent` (свой `CollectableObject`),
-  `ResourcePickupComponent`/`UIPatchComponent` (своя система инвентаря/окон),
-  `UnlockCraftItem`/`PatchItemByConfig`/`CheckAndAddItem`/`WaitForResourceAmount`
-  (`ServiceLocator`/`UserInventoryService`/`CraftingService`), `WaitForTriggerZone`
-  (свой `TriggerZone`), аналитика (`GameAnalyticsSDK`) — замените на
-  `StepCompleted`/`OnOnboardingComplete` события.
-- **`WorldArrowPointer` обобщён**: вместо хардкода `Outline`/`InteractableObject`/
-  `ArrowInteractable`/`InteractionsController`/тега `"Train"` — событие
-  `TargetChanged(Transform)`, на которое вешаете свою подсветку/интерактивность:
-  ```csharp
-  worldArrowPointer.TargetChanged += t => { if (t != null) t.GetOrAdd<MyOutline>().enabled = true; };
-  ```
-
 ---
 
 ## Utilities (Editor)
