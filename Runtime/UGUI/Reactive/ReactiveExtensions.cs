@@ -57,14 +57,6 @@ namespace VADE.DevTools.Reactive
             return new Subscription(() => prop.OnChanged -= Update);
         }
 
-        public static IDisposable BindTo(this Reactive<bool> prop, GameObject go)
-        {
-            void Update(bool v) => go.SetActive(v);
-            prop.OnChanged += Update;
-            go.SetActive(prop.value);
-            return new Subscription(() => prop.OnChanged -= Update);
-        }
-
         public static IDisposable BindTo(this Reactive<bool> prop, Button button)
         {
             void Update(bool v) => button.interactable = v;
@@ -109,19 +101,6 @@ namespace VADE.DevTools.Reactive
             inputField.onValueChanged.AddListener(unityAction);
             return new Subscription(() => inputField.onValueChanged.RemoveListener(unityAction));
         }
-
-        public static IDisposable Subscribe<T>(this Reactive<T> prop, Action<T> onChanged)
-        {
-            void Update(T v) => onChanged(v);
-
-            prop.OnChanged += Update;
-            onChanged(prop.value);
-
-            return new Subscription(() => prop.OnChanged -= Update);
-        }
-
-        public static IDisposable SubscribeAndInvoke<T>(this Reactive<T> prop, Action<T> onChanged)
-            => prop.Subscribe(onChanged);
 
         internal sealed class Subscription : IDisposable
         {
